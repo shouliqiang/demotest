@@ -1,0 +1,12 @@
+# 核心依赖
+dashscope>=1.14.0
+requests>=2.31.0
+Pillow>=10.0.0
+
+# Web框架
+flask>=2.0.0
+flask-cors>=4.0.0
+
+# 可选：用于生产部署
+# gunicorn>=20.0.0
+# gevent>=21.0.0

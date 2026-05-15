@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI视频场景生成器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', '微软雅黑', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 30px;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .card h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            background: #5a67d8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-danger {
+            background: #e53e3e;
+        }
+        .btn-success {
+            background: #48bb78;
+        }
+        .image-preview {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .image-preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+            width: 0%;
+        }
+        .log-area {
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+        }
+        .config-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .config-row input {
+            flex: 1;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .mode-btn.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .mode-btn:hover {
+            border-color: #667eea;
+        }
+        .mode-icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        @media (max-width: 768px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 AI产品宣传生成器</h1>
+        <div class="subtitle">上传产品图片 **→** 选择模式 → 生成宣传内容</div>
+
+        <div class="main-grid">
+            <!-- 左侧：配置区 -->
+            <div class="card">
+                <h2>⚙️ 配置</h2>
+
+                <!-- 模式选择 -->
+                <div class="form-group">
+                    <label>🎯 生成模式</label>
+                    <div class="mode-selector">
+                        <div class="mode-btn active" onclick="selectMode('video')" id="videoModeBtn">
+                            <div class="mode-icon">🎥</div>
+                            <div>宣传视频</div>
+                        </div>
+                        <div class="mode-btn" onclick="selectMode('poster')" id="posterModeBtn">
+                            <div class="mode-icon">🖼️</div>
+                            <div>宣传海报</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>阿里云 API Key</label>
+                    <div class="config-row">
+                        <input type="password" id="apiKey" placeholder="sk-xxxxxxxx">
+                        <button onclick="saveConfig()" class="btn-success">保存</button>
+                    </div>
+                </div>
+
+                <div class="form-group" id="gptKeyGroup" style="display: none;">
+                    <label>GPT Image API Key</label>
+                    <div class="config-row">
+                        <input type="password" id="gptApiKey" placeholder="输入GPT Image API Key">
+                        <button onclick="saveGPTConfig()" class="btn-success">保存</button>
+                    </div>
+                </div>
+
+                <div id="videoOptions">
+                    <div class="form-group">
+                        <label>🎨 视频风格</label>
+                        <select id="style"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🎥 运镜方式</label>
+                        <select id="camera"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>⏱️ 视频时长 (秒)</label>
+                        <input type="number" id="duration" min="2" max="15" value="10">
+                    </div>
+                </div>
+
+                <div id="posterOptions" style="display: none;">
+                    <div class="form-group">
+                        <label>📐 海报尺寸</label>
+                        <select id="posterSize">
+                            <option value="1024x1024">正方形 (1024x1024)</option>
+                            <option value="1536x1024">横版 (1536x1024)</option>
+                            <option value="1024x1536">竖版 (1024x1536)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>📷 产品图片</label>
+                    <input type="file" id="imageInput" accept="image/jpeg,image/png">
+                    <div class="image-preview" id="imagePreview"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>📝 产品描述（可选）</label>
+                    <textarea id="description" placeholder="例如：蓝牙耳机，轻巧便携，高颜值，磨砂质感"></textarea>
+                </div>
+
+                <button id="generatePromptBtn" onclick="generatePrompt()">✨ 智能生成场景描述</button>
+                <button id="generateVideoBtn" onclick="generateVideo()" disabled>🎬 生成宣传视频</button>
+                <button id="generatePosterBtn" onclick="generatePoster()" disabled style="display: none;">🖼️ 生成宣传海报</button>
+            </div>
+
+            <!-- 右侧：输出区 -->
+            <div class="card">
+                <h2 id="outputTitle">🎯 AI生成的视频场景描述</h2>
+                <textarea id="promptOutput" rows="8" readonly placeholder="点击生成后，场景描述将显示在这里..."></textarea>
+                <button onclick="copyDescription()">📋 复制描述</button>
+
+                <div class="progress-bar" style="margin-top: 20px;">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="status"></div>
+
+                <div id="resultArea" style="margin-top: 20px; display: none;">
+                    <h2>✅ 生成结果</h2>
+                    <div id="resultContent"></div>
+                </div>
+
+                <h2 style="margin-top: 20px;">📊 执行日志</h2>
+                <div class="log-area" id="logArea">
+                    [INFO] 程序已启动<br>
+                    [INFO] 等待配置API Key...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let imageBase64 = null;
+        let imagePath = null;
+        let currentTaskId = null;
+        let pollingInterval = null;
+        let currentMode = 'video'; // 'video' or 'poster'
+
+        // 选择模式
+                // 选择模式
+        function selectMode(mode) {
+            currentMode = mode;
+
+            // 更新按钮状态
+            document.getElementById('videoModeBtn').classList.toggle('active', mode === 'video');
+            document.getElementById('posterModeBtn').classList.toggle('active', mode === 'poster');
+
+            // 显示/隐藏相应选项
+            document.getElementById('videoOptions').style.display = mode === 'video' ? 'block' : 'none';
+            document.getElementById('posterOptions').style.display = mode === 'poster' ? 'block' : 'none';
+            document.getElementById('gptKeyGroup').style.display = mode === 'poster' ? 'block' : 'none';
+
+            // 更新按钮显示
+            if (mode === 'video') {
+                document.getElementById('generateVideoBtn').style.display = 'inline-block';
+                document.getElementById('generatePosterBtn').style.display = 'none';
+                document.getElementById('outputTitle').textContent = '🎯 AI生成的视频场景描述';
+                // 根据是否有图片启用按钮
+                document.getElementById('generateVideoBtn').disabled = !imageBase64;
+            } else {
+                document.getElementById('generateVideoBtn').style.display = 'none';
+                document.getElementById('generatePosterBtn').style.display = 'inline-block';
+                document.getElementById('outputTitle').textContent = '🎯 AI生成的海报描述';
+                // 根据是否有图片启用按钮
+                document.getElementById('generatePosterBtn').disabled = !imageBase64;
+            }
+
+            addLog(`[INFO] 切换到${mode === 'video' ? '宣传视频' : '宣传海报'}模式`, 'info');
+        }
+
+
+        // 加载配置
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config');
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('apiKey').value = '';
+                    document.getElementById('gptApiKey').value = '';
+                    // 填充下拉框
+                    const styleSelect = document.getElementById('style');
+                    styleSelect.innerHTML = data.config.styles.map(s =>
+                        `<option value="${s}" ${s === data.config.style ? 'selected' : ''}>${s}</option>`
+                    ).join('');
+
+                    const cameraSelect = document.getElementById('camera');
+                    cameraSelect.innerHTML = data.config.cameras.map(c =>
+                        `<option value="${c}" ${c === data.config.camera ? 'selected' : ''}>${c}</option>`
+                    ).join('');
+
+                    document.getElementById('duration').value = data.config.duration;
+
+                    if (data.config.has_key) {
+                        addLog('[INFO] 检测到已配置阿里云API Key', 'info');
+                    } else {
+                        addLog('[WARN] 请先配置阿里云API Key', 'warn');
+                    }
+
+                    if (data.config.has_gpt_key) {
+                        addLog('[INFO] 检测到已配置GPT Image API Key', 'info');
+                    }
+                }
+            } catch (e) {
+                addLog(`[ERROR] 加载配置失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 保存阿里云配置
+        async function saveConfig() {
+            const apiKey = document.getElementById('apiKey').value;
+            if (!apiKey) {
+                addLog('[WARN] 请输入API Key', 'warn');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key: apiKey})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    addLog('[SUCCESS] API Key已保存', 'success');
+                }
+            } catch (e) {
+                addLog(`[ERROR] 保存失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 保存GPT Image配置
+        async function saveGPTConfig() {
+            const gptKey = document.getElementById('gptApiKey').value;
+            if (!gptKey) {
+                addLog('[WARN] 请输入GPT Image API Key', 'warn');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({gpt_image_key: gptKey})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    addLog('[SUCCESS] GPT Image API Key已保存', 'success');
+                }
+            } catch (e) {
+                addLog(`[ERROR] 保存失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 上传图片
+        document.getElementById('imageInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            addLog(`[INFO] 上传图片: ${file.name}`, 'info');
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    imageBase64 = data.image_base64;
+                    imagePath = data.filepath;
+
+                    // 显示预览
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `<img src="data:image/jpeg;base64,${imageBase64}" alt="产品图片">`;
+
+                    addLog('[SUCCESS] 图片上传成功', 'success');
+
+                    // 根据模式启用相应按钮
+                    if (currentMode === 'video') {
+                        document.getElementById('generateVideoBtn').disabled = false;
+                    } else {
+                        document.getElementById('generatePosterBtn').disabled = false;
+                    }
+                } else {
+                    addLog(`[ERROR] ${data.error}`, 'error');
+                }
+            } catch (e) {
+                addLog(`[ERROR] 上传失败: ${e.message}`, 'error');
+            }
+        });
+
+        // 生成提示词
+                // 生成提示词
+        async function generatePrompt() {
+            if (!imagePath) {
+                addLog('[WARN] 请先上传图片', 'warn');
+                return;
+            }
+
+            const btn = document.getElementById('generatePromptBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ AI生成中...';
+
+            const modeText = currentMode === 'poster' ? '海报设计' : '视频场景';
+            addLog(`[INFO] AI正在生成${modeText}描述...`, 'info');
+
+            try {
+                const res = await fetch('/api/generate_prompt', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        image_path: imagePath,
+                        description: document.getElementById('description').value,
+                        style: document.getElementById('style').value,
+                        camera: document.getElementById('camera').value,
+                        duration: document.getElementById('duration').value,
+                        mode: currentMode,  // 传递当前模式
+                        poster_size: document.getElementById('posterSize').value  // 传递海报尺寸
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('promptOutput').value = data.prompt;
+                    addLog(`[SUCCESS] ${modeText}描述生成成功`, 'success');
+                } else {
+                    addLog(`[ERROR] ${data.error}`, 'error');
+                }
+            } catch (e) {
+                addLog(`[ERROR] 生成失败: ${e.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✨ 智能生成场景描述';
+            }
+        }
+
+
+        // 生成视频
+        async function generateVideo() {
+            const prompt = document.getElementById('promptOutput').value;
+            if (!prompt) {
+                addLog('[WARN] 请先生成场景描述', 'warn');
+                return;
+            }
+
+            if (!imageBase64) {
+                addLog('[WARN] 请先上传图片', 'warn');
+                return;
+            }
+
+            const btn = document.getElementById('generateVideoBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 生成中...';
+
+            addLog('[INFO] 提交视频生成任务...', 'info');
+
+            try {
+                const res = await fetch('/api/generate_video', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        image_base64: imageBase64,
+                        duration: parseInt(document.getElementById('duration').value)
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    currentTaskId = data.task_id;
+                    addLog(`[INFO] 任务已提交: ${currentTaskId}`, 'info');
+                    startPolling(currentTaskId);
+                } else {
+                    addLog(`[ERROR] ${data.error}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🎬 生成宣传视频';
+                }
+            } catch (e) {
+                addLog(`[ERROR] 提交失败: ${e.message}`, 'error');
+                btn.disabled = false;
+                btn.textContent = '🎬 生成宣传视频';
+            }
+        }
+
+        // 生成海报
+                // 生成海报
+        async function generatePoster() {
+            const prompt = document.getElementById('promptOutput').value || document.getElementById('description').value;
+            if (!prompt) {
+                addLog('[WARN] 请输入海报描述', 'warn');
+                return;
+            }
+
+            const btn = document.getElementById('generatePosterBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 生成中...';
+
+            addLog('[INFO] 提交海报生成任务...', 'info');
+
+            try {
+                const res = await fetch('/api/generate_poster', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        image_urls: imagePath ? [imagePath] : [],  // 传递图片路径
+                        size: document.getElementById('posterSize').value
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    currentTaskId = data.task_id;
+                    addLog(`[INFO] 海报任务已提交: ${currentTaskId}`, 'info');
+                    startPosterPolling(currentTaskId);
+                } else {
+                    addLog(`[ERROR] ${data.error}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🖼️ 生成宣传海报';
+                }
+            } catch (e) {
+                addLog(`[ERROR] 提交失败: ${e.message}`, 'error');
+                btn.disabled = false;
+                btn.textContent = '🖼️ 生成宣传海报';
+            }
+        }
+
+
+        // 轮询视频任务状态
+        function startPolling(taskId) {
+            if (pollingInterval) clearInterval(pollingInterval);
+
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/task/${taskId}`);
+                    const data = await res.json();
+
+                    // 更新进度条
+                    if (data.progress) {
+                        document.getElementById('progressFill').style.width = `${data.progress}%`;
+                    }
+
+                    if (data.status === 'completed') {
+                        clearInterval(pollingInterval);
+                        addLog(`[SUCCESS] 视频生成成功！`, 'success');
+                        addLog(`[INFO] 下载地址: ${data.video_url}`, 'info');
+
+                        // 重置按钮
+                        const btn = document.getElementById('generateVideoBtn');
+                        btn.disabled = false;
+                        btn.textContent = '🎬 生成宣传视频';
+
+                        // 显示结果
+                        showResult(`视频生成成功！<br><a href="${data.video_url}" download class="btn-success" style="display: inline-block; margin-top: 10px;">点击下载视频</a>`, 'success');
+
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollingInterval);
+                        addLog(`[ERROR] ${data.error}`, 'error');
+                        const btn = document.getElementById('generateVideoBtn');
+                        btn.disabled = false;
+                        btn.textContent = '🎬 生成宣传视频';
+                        showStatus(`生成失败: ${data.error}`, 'error');
+                    } else {
+                        addLog(`[INFO] 任务状态: ${data.status} - 进度: ${data.progress}%`, 'info');
+                    }
+                } catch (e) {
+                    console.error('轮询失败:', e);
+                }
+            }, 3000);
+        }
+
+        // 轮询海报任务状态
+        function startPosterPolling(taskId) {
+            if (pollingInterval) clearInterval(pollingInterval);
+
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/poster_task/${taskId}`);
+                    const data = await res.json();
+
+                    // 更新进度条
+                    if (data.progress) {
+                        document.getElementById('progressFill').style.width = `${data.progress}%`;
+                    }
+
+                    if (data.status === 'completed') {
+                        clearInterval(pollingInterval);
+                        addLog(`[SUCCESS] 海报生成成功！`, 'success');
+                        addLog(`[INFO] 下载地址: ${data.image_url}`, 'info');
+
+                        // 重置按钮
+                        const btn = document.getElementById('generatePosterBtn');
+                        btn.disabled = false;
+                        btn.textContent = '🖼️ 生成宣传海报';
+
+                        // 显示结果
+                        showResult(`海报生成成功！<br><img src="${data.image_url}" style="max-width: 100%; border-radius: 10px; margin-top: 10px;"><br><a href="${data.image_url}" download class="btn-success" style="display: inline-block; margin-top: 10px;">点击下载海报</a>`, 'success');
+
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollingInterval);
+                        addLog(`[ERROR] ${data.error}`, 'error');
+                        const btn = document.getElementById('generatePosterBtn');
+                        btn.disabled = false;
+                        btn.textContent = '🖼️ 生成宣传海报';
+                        showStatus(`生成失败: ${data.error}`, 'error');
+                    } else {
+                        addLog(`[INFO] 任务状态: ${data.status} - 进度: ${data.progress}%`, 'info');
+                    }
+                } catch (e) {
+                    console.error('轮询失败:', e);
+                }
+            }, 3000);
+        }
+
+        // 复制描述
+        function copyDescription() {
+            const textarea = document.getElementById('promptOutput');
+            textarea.select();
+            document.execCommand('copy');
+            addLog('[SUCCESS] 描述已复制到剪贴板', 'success');
+        }
+
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const time = new Date().toLocaleTimeString();
+            const colors = {info: '#0f0', success: '#0f0', warn: '#ff0', error: '#f00'};
+            const color = colors[type] || '#0f0';
+            logArea.innerHTML += `<div style="color: ${color}">[${time}] ${message}</div>`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // 显示状态
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                if (statusDiv.firstChild === statusDiv.lastChild) {
+                    statusDiv.innerHTML = '';
+                }
+            }, 5000);
+        }
+
+        // 显示结果
+        function showResult(content, type) {
+            const resultArea = document.getElementById('resultArea');
+            const resultContent = document.getElementById('resultContent');
+            resultContent.innerHTML = content;
+            resultArea.style.display = 'block';
+        }
+
+        // 保存配置时不保存API Key，只保存其他设置
+        document.getElementById('style').addEventListener('change', async () => {
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({style: document.getElementById('style').value})
+            });
+        });
+
+        document.getElementById('camera').addEventListener('change', async () => {
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({camera: document.getElementById('camera').value})
+            });
+        });
+
+        document.getElementById('duration').addEventListener('change', async () => {
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({duration: parseInt(document.getElementById('duration').value)})
+            });
+        });
+
+        // 初始化
+        loadConfig();
+    </script>
+</body>
+</html>
