@@ -19,5 +19,5 @@ copy config.example.json config.json
 3. 启动
 
 ```bash
-python web_app.py
+python main.py
 ```

@@ -162,10 +162,43 @@
         .mode-btn:hover {
             border-color: #667eea;
         }
+
         .mode-icon {
             font-size: 2rem;
             margin-bottom: 5px;
         }
+        .help-link {
+            display: inline-block;
+            margin-top: 5px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .help-link:hover {
+            text-decoration: underline;
+        }
+        .api-input-wrapper {
+            position: relative;
+        }
+        .api-input-wrapper input {
+            padding-right: 80px;
+        }
+        .show-api-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e0e0e0;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .show-api-btn:hover {
+            background: #d0d0d0;
+        }
+
         @media (max-width: 768px) {
             .main-grid { grid-template-columns: 1fr; }
         }
@@ -174,7 +207,7 @@
 <body>
     <div class="container">
         <h1>🎬 AI产品宣传生成器</h1>
-        <div class="subtitle">上传产品图片 **→** 选择模式 → 生成宣传内容</div>
+        <div class="subtitle">上传产品图片 → 选择模式 → 生成宣传内容</div>
 
         <div class="main-grid">
             <!-- 左侧：配置区 -->
@@ -199,17 +232,23 @@
                 <div class="form-group">
                     <label>阿里云 API Key</label>
                     <div class="config-row">
-                        <input type="password" id="apiKey" placeholder="sk-xxxxxxxx">
+                        <input type="text" id="apiKey" placeholder="sk-xxxxxxxx" style="flex: 1; -webkit-text-security: disc; text-security: disc;">
                         <button onclick="saveConfig()" class="btn-success">保存</button>
                     </div>
+                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="help-link">
+                        🔗 如何获取阿里云API Key？
+                    </a>
                 </div>
 
                 <div class="form-group" id="gptKeyGroup" style="display: none;">
                     <label>GPT Image API Key</label>
                     <div class="config-row">
-                        <input type="password" id="gptApiKey" placeholder="输入GPT Image API Key">
+                        <input type="text" id="gptApiKey" placeholder="输入GPT Image API Key" style="flex: 1; -webkit-text-security: disc; text-security: disc;">
                         <button onclick="saveGPTConfig()" class="btn-success">保存</button>
                     </div>
+                    <a href="https://4sapi.com" target="_blank" class="help-link">
+                         如何获取GPT Image API Key？
+                    </a>
                 </div>
 
                 <div id="videoOptions">
@@ -230,14 +269,6 @@
                 </div>
 
                 <div id="posterOptions" style="display: none;">
-                    <div class="form-group">
-                        <label>📐 海报尺寸</label>
-                        <select id="posterSize">
-                            <option value="1024x1024">正方形 (1024x1024)</option>
-                            <option value="1536x1024">横版 (1536x1024)</option>
-                            <option value="1024x1536">竖版 (1024x1536)</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="form-group">
@@ -320,6 +351,35 @@
             addLog(`[INFO] 切换到${mode === 'video' ? '宣传视频' : '宣传海报'}模式`, 'info');
         }
 
+        // 切换API Key显示/隐藏
+        function toggleApiVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '隐藏';
+            } else {
+                input.type = 'password';
+                btn.textContent = '显示';
+            }
+        }
+
+        // 复制API Key
+        function copyApiKey(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input.value || input.value.includes('•')) {
+                addLog('[WARN] 没有可复制的API Key', 'warn');
+                return;
+            }
+
+            navigator.clipboard.writeText(input.value).then(() => {
+                addLog('[SUCCESS] API Key已复制到剪贴板', 'success');
+            }).catch(err => {
+                // 降级方案
+                input.select();
+                document.execCommand('copy');
+                addLog('[SUCCESS] API Key已复制到剪贴板', 'success');
+            });
+        }
 
         // 加载配置
         async function loadConfig() {
@@ -327,9 +387,6 @@
                 const res = await fetch('/api/config');
                 const data = await res.json();
                 if (data.success) {
-                    document.getElementById('apiKey').value = '';
-                    document.getElementById('gptApiKey').value = '';
-                    // 填充下拉框
                     const styleSelect = document.getElementById('style');
                     styleSelect.innerHTML = data.config.styles.map(s =>
                         `<option value="${s}" ${s === data.config.style ? 'selected' : ''}>${s}</option>`
@@ -344,12 +401,17 @@
 
                     if (data.config.has_key) {
                         addLog('[INFO] 检测到已配置阿里云API Key', 'info');
+                        document.getElementById('apiKey').value = data.config.dashscope_key || '';
                     } else {
                         addLog('[WARN] 请先配置阿里云API Key', 'warn');
+                        document.getElementById('apiKey').value = '';
                     }
 
                     if (data.config.has_gpt_key) {
                         addLog('[INFO] 检测到已配置GPT Image API Key', 'info');
+                        document.getElementById('gptApiKey').value = data.config.gpt_image_key || '';
+                    } else {
+                        document.getElementById('gptApiKey').value = '';
                     }
                 }
             } catch (e) {
@@ -444,7 +506,6 @@
         });
 
         // 生成提示词
-                // 生成提示词
         async function generatePrompt() {
             if (!imagePath) {
                 addLog('[WARN] 请先上传图片', 'warn');
@@ -468,8 +529,7 @@
                         style: document.getElementById('style').value,
                         camera: document.getElementById('camera').value,
                         duration: document.getElementById('duration').value,
-                        mode: currentMode,  // 传递当前模式
-                        poster_size: document.getElementById('posterSize').value  // 传递海报尺寸
+                        mode: currentMode
                     })
                 });
                 const data = await res.json();
@@ -487,7 +547,6 @@
                 btn.textContent = '✨ 智能生成场景描述';
             }
         }
-
 
         // 生成视频
         async function generateVideo() {
@@ -537,7 +596,6 @@
         }
 
         // 生成海报
-                // 生成海报
         async function generatePoster() {
             const prompt = document.getElementById('promptOutput').value || document.getElementById('description').value;
             if (!prompt) {
@@ -557,8 +615,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         prompt: prompt,
-                        image_urls: imagePath ? [imagePath] : [],  // 传递图片路径
-                        size: document.getElementById('posterSize').value
+                        image_urls: imagePath ? [imagePath] : []
                     })
                 });
                 const data = await res.json();
@@ -570,7 +627,7 @@
                 } else {
                     addLog(`[ERROR] ${data.error}`, 'error');
                     btn.disabled = false;
-                    btn.textContent = '🖼️ 生成宣传海报';
+                    btn.textContent = '️ 生成宣传海报';
                 }
             } catch (e) {
                 addLog(`[ERROR] 提交失败: ${e.message}`, 'error');
@@ -578,7 +635,6 @@
                 btn.textContent = '🖼️ 生成宣传海报';
             }
         }
-
 
         // 轮询视频任务状态
         function startPolling(taskId) {
